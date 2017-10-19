@@ -8,12 +8,16 @@ import numpy as np
 from collections import Counter
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix
 from sklearn.svm import LinearSVC
-from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import TfidfTransformer,TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction import DictVectorizer
-
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import precision_score,recall_score,f1_score,average_precision_score
 
 # #### Extracting F1 = number of URL, links in the message
 def count_emails(s):
@@ -49,9 +53,12 @@ def make_Dictionary(root_dir):
                         words = line.split()
                         all_words += words
                         email_words+=words
-                    emailClass=mail.split(".")[-2]
+                    emailClass='ham'
+                    print mail.split(".")[-2]
+                    if mail.split(".")[-2]=='spam':
+                        emailClass='spam'
                     all_email_corpus['text'].append(' '.join(email_words))
-                    all_email_corpus['class'].append(emailClass)
+                    all_email_corpus['class'].append(emailClass) #1 is spam , 0 is ham
                         
     dictionary = Counter(all_words)
     list_to_remove = dictionary.keys()
@@ -64,23 +71,9 @@ def make_Dictionary(root_dir):
     dictionary = dictionary.most_common(3000)
     vocabulary=sorted( [key for (key,value) in dictionary]) 
     np.save('vocabulary.npy',vocabulary) 
-    np.save('all_email_corpus',all_email_corpus)
+    np.save('all_email_corpus.npy',all_email_corpus)
     
     return vocabulary,all_email_corpus
-def evaluate_learning(tn, fp, fn, tp ):
-   
-    TP=tp
-    FP=fp
-    FN=fn
-    TN=tn
-   
-
-    recall=float(TP)/(TP+FN)
-    precision=float(TP)/(TP+FP)
-    accuracy=float(TP+TN)/(TP+FP+FN+TN)
-    error=float(FP+FN)/(TP+FP+FN+TN)
-  
-    return {'TP':TP,'FP':FP,'FN':FN,'TN':TN,'precision':precision,'recall':recall,'accuracy':accuracy,'error':error}
 def extract_features(root_dir): 
     
     docID = 0
@@ -124,80 +117,100 @@ def extract_features(root_dir):
             docID = docID + 1                
     return features_matrix,train_labels
 
-def classify_SVM_NB(y_test,svn_prediction,nb_prediction):
-    print "SVM"
-    tn, fp, fn, tp= confusion_matrix(y_test, svn_prediction).ravel()
-    print evaluate_learning(tn, fp, fn, tp )
-    print "Naive Bayesian"
-    tn, fp, fn, tp= confusion_matrix(y_test, nb_prediction).ravel()
-    print evaluate_learning(tn, fp, fn, tp )
+def evaluate_prediction(labels_test,predictions):
+    evaluationTable=[]
+    for key,value in predictions.iteritems():
+        
+        evaluation={}
+        evaluation['Classifier']=key
+        
 
-# ### creating the incidence matrix
-# #### Create a dictionary of words with its frequency
-root_dir = 'dataset'
-make_Dictionary(root_dir)
-#vocabulary,all_email_corpus = make_Dictionary(root_dir)
-#print vocabulary
+        evaluation['Recall']=recall_score(labels_test,value)
+        evaluation['Precision']=precision_score(labels_test,value)
+        evaluation['F1 Score']=f1_score(labels_test,value)
+        evaluation['Average Precision score']=average_precision_score(labels_test,value)
+        
+        evaluationTable.append(evaluation)
+    return evaluationTable
 
-##### Prepare feature vectors per training mail and its labelsf# In[ ]:
+#### Step 0. extracting email corpus and vocabulary
+#root_dir = 'dataset'
+#make_Dictionary(root_dir)
 
-#print dictionary
-#print all_email_corpus
+#### step 0.1. 
+all_email_corpus=np.load("all_email_corpus.npy").item()
+vocabularyList=np.load("vocabulary.npy").tolist()
+documents=all_email_corpus['text']
+labels=all_email_corpus['class']
 
-#dictionary=np.load("dict_enron.npy").tolist()
-#print dictionary
+binarizer=LabelBinarizer()
+binarisedLables=binarizer.fit_transform(labels).ravel()
 
-#features_matrix,labels = extract_features(root_dir)
+#x is document
+# y is the labels or classes
+document_train, document_test, labels_train, labels_test = train_test_split(documents, binarisedLables, test_size=0.40)
 
-#np.save('enron_features_matrix.npy',features_matrix)
-#np.save('enron_labels.npy',labels)
+### step 1. Only term frequency feature
+print "With TF"
+word2vectTransformer=CountVectorizer(vocabulary=vocabularyList)
 
-#countVectorizer=CountVectorizer()
-#countVectorizer.vocabulary
-#incident_matrix = np.load('enron_features_matrix.npy')
-#labels = np.load('enron_labels.npy')
-
-#tfIdf=compute_tf_idf(incident_matrix)
-
-##transformer=DictVectorizer()
-####features=[{"tf":incident_matrix},{"tf.idf":tfIdf}]
-#featureSet=transformer.fit_transform(features)
-#featureSet=transformer.transform(features)
-
-#pipeline=pipeline[('tf',incident_matrix),('tf_idf',tfIdf),('classifier',LinearSVC())]
-
-#print "Ground Truth Ham Spam"
-#print sum(labels==0),sum(labels==1)
-
-##X_train, X_test, y_train, y_test = train_test_split(featureSet, labels, test_size=0.40)
-
-
-#### Training models and its variants
-
-
-#model1 = LinearSVC()
-#model2 = MultinomialNB()
-
-#print  "training model using tf" 
-#model1.fit(X_train,y_train)
-#model2.fit(X_train,y_train)
-
-#result1 = model1.predict(X_test)
-#result2 = model2.predict(X_test)
-
-#classify_SVM_NB(y_test,result1,result2)
-
-
-#print  "training model using tf.idf"
-
-#model1.fit(X_train,y_train)
-#model2.fit(X_train,y_train)
-
-#result1 = model1.predict(X_test)
-#result2 = model2.predict(X_test)
-
-#classify_SVM_NB(y_test,result1,result2)
+SVM_pipeline=Pipeline([
+    ('tf',word2vectTransformer),
+    ('SVM',LinearSVC()) 
+])
+NB_pipeline=Pipeline([
+    ('tf',word2vectTransformer),
+    ('SVM',MultinomialNB()) 
+])
+RF_pipeline=Pipeline([
+    ('tf',word2vectTransformer),
+    ('Random Forest',RandomForestClassifier()) 
+])
+KNN_pipeline=Pipeline([
+    ('tf',word2vectTransformer),
+    ('Random Forest',KNeighborsClassifier()) 
+])
 
 
 
+predictions={}
+predictions["SVM"]=SVM_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
+#print type(predictions)
 
+scores=evaluate_prediction(labels_test,predictions)
+
+
+print scores
+
+#### Step 2.  TF.IDF
+print "With TF.IDF"
+documents2TfidfVector =TfidfVectorizer(vocabulary=vocabularyList)
+SVM_pipeline=Pipeline([
+    ('tfIdf',documents2TfidfVector),
+    ('SVM',LinearSVC()) 
+])
+NB_pipeline=Pipeline([
+    ('tfIdf',documents2TfidfVector),
+    ('SVM',MultinomialNB()) 
+])
+RF_pipeline=Pipeline([
+    ('tf',documents2TfidfVector),
+    ('Random Forest',RandomForestClassifier()) 
+])
+KNN_pipeline=Pipeline([
+    ('tf',documents2TfidfVector),
+    ('Random Forest',KNeighborsClassifier()) 
+])
+
+predictions={}
+predictions["SVM"]=SVM_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
+
+scores=evaluate_prediction(labels_test,predictions)
+
+print scores
