@@ -10,6 +10,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import confusion_matrix
 from sklearn.svm import LinearSVC
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction import DictVectorizer
 
 
 # #### Extracting F1 = number of URL, links in the message
@@ -21,10 +24,18 @@ def count_emails(s):
     emails=re. re.findall(regex, s)
     return len(emails)
 
+def compute_tf_idf(incidentMatrix):
+    "Returns the TFF.IDF of the Incident Matrix"
+    transformer =TfidfTransformer(smooth_idf=False)
+   
+    transformer.fit(incidentMatrix)
+    tfIdf=transformer.transform(incident_matrix)
+    return tfIdf
 # run this method onces, and then load the saved data and use subsequently
 # method saves dict_enron.npy, all_email_corpus
 def make_Dictionary(root_dir):
-    all_email_corpus={'spam':[],'ham':[]}
+    all_email_corpus={'text': [], 'class': []}
+   
     emails_dirs = [os.path.join(root_dir,f) for f in os.listdir(root_dir)]    
     all_words = []       
     for emails_dir in emails_dirs:
@@ -38,10 +49,9 @@ def make_Dictionary(root_dir):
                         words = line.split()
                         all_words += words
                         email_words+=words
-                    if(mail.split(".")[-2] == 'spam'):                       
-                        (all_email_corpus['spam']).append(email_words)
-                    else:
-                        (all_email_corpus['ham']).append(email_words)
+                    emailClass=mail.split(".")[-2]
+                    all_email_corpus['text'].append(' '.join(email_words))
+                    all_email_corpus['class'].append(emailClass)
                         
     dictionary = Counter(all_words)
     list_to_remove = dictionary.keys()
@@ -65,8 +75,8 @@ def evaluate_learning(tn, fp, fn, tp ):
     TN=tn
    
 
-    recall=float(TP)/(TP+FP)
-    precision=float(TP)/(TP+FN)
+    recall=float(TP)/(TP+FN)
+    precision=float(TP)/(TP+FP)
     accuracy=float(TP+TN)/(TP+FP+FN+TN)
     error=float(FP+FN)/(TP+FP+FN+TN)
   
@@ -114,10 +124,18 @@ def extract_features(root_dir):
             docID = docID + 1                
     return features_matrix,train_labels
 
+def classify_SVM_NB(y_test,svn_prediction,nb_prediction):
+    print "SVM"
+    tn, fp, fn, tp= confusion_matrix(y_test, svn_prediction).ravel()
+    print evaluate_learning(tn, fp, fn, tp )
+    print "Naive Bayesian"
+    tn, fp, fn, tp= confusion_matrix(y_test, nb_prediction).ravel()
+    print evaluate_learning(tn, fp, fn, tp )
 
 # ### creating the incidence matrix
 # #### Create a dictionary of words with its frequency
 root_dir = 'dataset'
+make_Dictionary(root_dir)
 #vocabulary,all_email_corpus = make_Dictionary(root_dir)
 #print vocabulary
 
@@ -129,37 +147,56 @@ root_dir = 'dataset'
 #dictionary=np.load("dict_enron.npy").tolist()
 #print dictionary
 
-features_matrix,labels = extract_features(root_dir)
+#features_matrix,labels = extract_features(root_dir)
 
 #np.save('enron_features_matrix.npy',features_matrix)
 #np.save('enron_labels.npy',labels)
 
-#train_matrix = np.load('enron_features_matrix.npy');
-#labels = np.load('enron_labels.npy');
+#countVectorizer=CountVectorizer()
+#countVectorizer.vocabulary
+#incident_matrix = np.load('enron_features_matrix.npy')
+#labels = np.load('enron_labels.npy')
 
-print features_matrix.shape
-print labels.shape
-print "Ground Truth Ham Spam"
-print sum(labels==0),sum(labels==1)
-X_train, X_test, y_train, y_test = train_test_split(features_matrix, labels, test_size=0.40)
+#tfIdf=compute_tf_idf(incident_matrix)
+
+##transformer=DictVectorizer()
+####features=[{"tf":incident_matrix},{"tf.idf":tfIdf}]
+#featureSet=transformer.fit_transform(features)
+#featureSet=transformer.transform(features)
+
+#pipeline=pipeline[('tf',incident_matrix),('tf_idf',tfIdf),('classifier',LinearSVC())]
+
+#print "Ground Truth Ham Spam"
+#print sum(labels==0),sum(labels==1)
+
+##X_train, X_test, y_train, y_test = train_test_split(featureSet, labels, test_size=0.40)
 
 
-# #### Training models and its variants
-model1 = LinearSVC()
-model2 = MultinomialNB()
+#### Training models and its variants
 
-model1.fit(X_train,y_train)
-model2.fit(X_train,y_train)
 
-result1 = model1.predict(X_test)
-result2 = model2.predict(X_test)
+#model1 = LinearSVC()
+#model2 = MultinomialNB()
 
-print "SVM"
-tn, fp, fn, tp= confusion_matrix(y_test, result1).ravel()
-print evaluate_learning(tn, fp, fn, tp )
-print "Naive Bayesian"
-tn, fp, fn, tp= confusion_matrix(y_test, result2).ravel()
-print evaluate_learning(tn, fp, fn, tp )
+#print  "training model using tf" 
+#model1.fit(X_train,y_train)
+#model2.fit(X_train,y_train)
+
+#result1 = model1.predict(X_test)
+#result2 = model2.predict(X_test)
+
+#classify_SVM_NB(y_test,result1,result2)
+
+
+#print  "training model using tf.idf"
+
+#model1.fit(X_train,y_train)
+#model2.fit(X_train,y_train)
+
+#result1 = model1.predict(X_test)
+#result2 = model2.predict(X_test)
+
+#classify_SVM_NB(y_test,result1,result2)
 
 
 
