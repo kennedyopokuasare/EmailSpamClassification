@@ -5,6 +5,7 @@
 
 import os
 import numpy as np
+import re
 from collections import Counter
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
@@ -16,25 +17,17 @@ from sklearn.feature_extraction.text import TfidfTransformer,TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.preprocessing import LabelBinarizer
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline,FeatureUnion
 from sklearn.metrics import precision_score,recall_score,f1_score,average_precision_score
+from sklearn.base import BaseEstimator, TransformerMixin
 
 # #### Extracting F1 = number of URL, links in the message
-def count_emails(s):
-    """Returns an iterator of matched emails found in string s."""
+
+
     
-    regex = re.compile(r"((?:(https?|s?ftp):\/\/)?(?:www\.)?((?:(?:[A-Z0-9][A-Z0-9-]{0,61}[A-Z0-9]\.)+)([A-Z]{2,6})|(?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}))(?::(\d{1,5}))?(?:(\/\S+)*))", re.IGNORECASE)
 
-    emails=re. re.findall(regex, s)
-    return len(emails)
 
-def compute_tf_idf(incidentMatrix):
-    "Returns the TFF.IDF of the Incident Matrix"
-    transformer =TfidfTransformer(smooth_idf=False)
-   
-    transformer.fit(incidentMatrix)
-    tfIdf=transformer.transform(incident_matrix)
-    return tfIdf
+
 # run this method onces, and then load the saved data and use subsequently
 # method saves dict_enron.npy, all_email_corpus
 def make_Dictionary(root_dir):
@@ -74,48 +67,6 @@ def make_Dictionary(root_dir):
     np.save('all_email_corpus.npy',all_email_corpus)
     
     return vocabulary,all_email_corpus
-def extract_features(root_dir): 
-    
-    docID = 0
-    #features_matrix = np.zeros((33716,3000))
-    features_matrix = np.zeros((200,3000))
-    train_labels = np.zeros(200)
-    # at this point we can load the saved all emails and dictionary
-    #emails_dirs = [os.path.join(root_dir,f) for f in os.listdir(root_dir)]  
-    all_email_corpus=np.load("all_email_corpus.npy").item()
-    vocabulary=np.load("vocabulary.npy").tolist()
-   
-    #for mail in all_email_corpus:
-
-  #  for emails_dir in emails_dirs:
-  #      print "in email directory"
-  #      dirs = [os.path.join(emails_dir,f) for f in os.listdir(emails_dir)]
-  #      for d in dirs:
-  #          emails = [os.path.join(d,f) for f in os.listdir(d)]
-  #          for mail in emails:
-  #              print mail
-  #              with open(mail) as m:
-  #                  all_words = []
- ##                  for line in m:
-  #                      print "iterating emails"
- ##                      words = line.split()
- #                       all_words += words
- #                   print all_words
-                 
-    docID=0
-    for key, emails in all_email_corpus.iteritems():
-        for email in emails:
-            for word in email:                                
-                print "extracting word Term Frequency of words"
-                wordID = 0
-                if (word.isalpha()) and (word in vocabulary):
-                    print "word in vocabulary"
-                    wordID = vocabulary.index(word)
-                    wordTermFrequency=email.count(word)                                   
-                    features_matrix[docID,wordID] = wordTermFrequency
-            train_labels[docID] = int(key == 'spam')
-            docID = docID + 1                
-    return features_matrix,train_labels
 
 def evaluate_prediction(labels_test,predictions):
     evaluationTable=[]
@@ -132,6 +83,45 @@ def evaluate_prediction(labels_test,predictions):
         
         evaluationTable.append(evaluation)
     return evaluationTable
+class URLCountVectorizer(BaseEstimator,TransformerMixin):
+    """Takes a list of documents and extracts count of URLs,links in document"""
+    def __init__(self):
+        pass
+    def count_url_links(self, s):
+        """Returns number of emails found in text"""
+        express1="((?:(http s?|s?ftp):\/\/)?(?: www \.)?((?:(?:[A-Z0-9][A-Z0-9-]{0,61}[A-Z0-9]\.)+)([A-Z]{2,6})|(?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}))(?::(\d{1,5}))?(?:(\/\S+)*))"
+        express2="http [s]?:// (?: www \.)? (?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+        express3="http|www|goto"
+
+        re1='(http|https|goto)'	# Word 1
+        re2='(\\s+)'	# White Space 1
+        re3='(.)'	# Any Single Character 1
+        re4='(\\s+)'	# White Space 2
+        re5='(.)'	# Any Single Character 2
+        re6='(\\s+)'	# White Space 3
+        re7='(\\/)'	# Any Single Character 3
+        re8='.*?'	# Non-greedy match on filler
+        re9='((www)*)'	# Word 2
+        re10='(\\s+)'	# White Space 4
+        regex = re.compile(re1+re2+re3+re4+re5+re6+re7+re8+re9+re10,re.IGNORECASE|re.DOTALL)
+        
+        emails=re.findall(regex, s)
+
+        return len(emails)
+
+    def get_all_url_counts(self, docs):
+        """Encodes document to number of URL, links"""
+        
+        return [self.count_url_links(d) for d in docs]
+
+    def transform(self, docs, y=None):
+        """The workhorse of this feature extractor"""
+        resultList=self.get_all_url_counts(docs)
+        return np.transpose(np.matrix(resultList))
+
+    def fit(self, docs, y=None):
+        """Returns `self` unless something different happens in train and test"""
+        return self
 
 #### Step 0. extracting email corpus and vocabulary
 #root_dir = 'dataset'
@@ -207,6 +197,49 @@ KNN_pipeline=Pipeline([
 
 predictions={}
 predictions["SVM"]=SVM_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
+
+scores=evaluate_prediction(labels_test,predictions)
+
+print scores
+
+#### Step 3. Feature component set F1...F5
+
+print "using feature set F1.."
+
+#document2NoURL=[ {'number_of_emails':count_url_links(d)} for d in document_train]
+
+#print type(document2NoURL)
+#print document2NoURL
+document2URL_count_vector=URLCountVectorizer()
+#document2URL_count_vector.vocabulary_=document2NoURL
+#document2URL_count_vector.feature_names_=labels_train
+
+featureSet=FeatureUnion([
+    ('Count of URLs',document2URL_count_vector)
+])
+SVM_pipeline=Pipeline([
+    ('feature set',featureSet),
+    ('SVM',LinearSVC()) 
+])
+NB_pipeline=Pipeline([
+    ('feature set',featureSet),
+    ('SVM',MultinomialNB()) 
+])
+RF_pipeline=Pipeline([
+    ('feature set',featureSet),
+    ('Random Forest',RandomForestClassifier()) 
+])
+KNN_pipeline=Pipeline([
+    ('feature set',featureSet),
+    ('Random Forest',KNeighborsClassifier()) 
+])
+
+predictions={}
+
+predictions["SVM"]=SVM_pipeline.fit( document_train,labels_train).predict(document_test)
 predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
 predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
 predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
