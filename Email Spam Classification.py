@@ -83,6 +83,31 @@ def evaluate_prediction(labels_test,predictions):
         
         evaluationTable.append(evaluation)
     return evaluationTable
+class WordCountVectorizer(BaseEstimator,TransformerMixin):
+    """Takes a list of documents and extracts word counts in the document"""
+    def __init__(self):
+        pass
+    def count_words_doc(self,doc):
+        """Returns the count of words in a document"""
+        all_words=doc.split()
+        all_words_iter=all_words
+        for item in all_words_iter:
+            if item.strip().isalpha() == False: 
+                all_words.remove(item)
+            
+        return len(all_words)
+    def get_all_word_counts(self,docs):
+         """Encodes document to number of words, links"""
+         return [self.count_words_doc(d) for d in docs]
+    def transform(self, docs, y=None):
+        """The workhorse of this feature extractor"""
+        resultList=self.get_all_word_counts(docs)
+        return np.transpose(np.matrix(resultList))
+
+    def fit(self, docs, y=None):
+        """Returns `self` unless something different happens in train and test"""
+        return self
+
 class URLCountVectorizer(BaseEstimator,TransformerMixin):
     """Takes a list of documents and extracts count of URLs,links in document"""
     def __init__(self):
@@ -207,19 +232,16 @@ print scores
 
 #### Step 3. Feature component set F1...F5
 
-print "using feature set F1.."
+print "using feature set F1.F3"
 
-#document2NoURL=[ {'number_of_emails':count_url_links(d)} for d in document_train]
 
-#print type(document2NoURL)
-#print document2NoURL
-document2URL_count_vector=URLCountVectorizer()
-#document2URL_count_vector.vocabulary_=document2NoURL
-#document2URL_count_vector.feature_names_=labels_train
+
 
 featureSet=FeatureUnion([
-    ('Count of URLs',document2URL_count_vector)
+    ('Count of URLs',URLCountVectorizer()),
+    ('Count of words',WordCountVectorizer())
 ])
+
 SVM_pipeline=Pipeline([
     ('feature set',featureSet),
     ('SVM',LinearSVC()) 
