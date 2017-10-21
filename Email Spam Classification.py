@@ -21,6 +21,8 @@ from sklearn.preprocessing import LabelBinarizer
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.metrics import precision_score, recall_score, f1_score, average_precision_score
 from sklearn.base import BaseEstimator, TransformerMixin
+from nltk.tag.stanford import StanfordNERTagger
+import grammar_check
 
 # #### Extracting F1 = number of URL, links in the message
 
@@ -70,7 +72,7 @@ def make_Dictionary(root_dir):
 def evaluate_prediction(labels_test, predictions):
     evaluationTable = []
     for key, value in predictions.iteritems():
-
+        confusion_matrix
         evaluation = {}
         evaluation['Classifier'] = key
 
@@ -79,7 +81,7 @@ def evaluate_prediction(labels_test, predictions):
         evaluation['F1 Score'] = f1_score(labels_test, value)
         evaluation['Average Precision score'] = average_precision_score(
             labels_test, value)
-
+        evaluation['tn'],evaluation['fp'],evaluation['fn'],evaluation['tp'] = confusion_matrix(labels_test, value).ravel()
         evaluationTable.append(evaluation)
     return evaluationTable
 
@@ -125,22 +127,53 @@ class NameEntityCountVectorizer(BaseEstimator, TransformerMixin):
     def count_named_entities(self, doc):
         """Returns a count of named entities in te a document"""
         tokens = nltk.word_tokenize(doc)
-        pos = nltk.pos_tag(tokens)
-        namedEntityTags = ["NN", "NNP", "NNS", "NNPS"]
-        named_entities = []
-        for word, tag in pos:
-            if tag in namedEntityTags:
-                named_entities.append(word)
-        print named_entities
-        return len(namedEntities)
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        
+        #serFile=os.path.join(dir_path,'english.all.3class.distsim.crf.ser')
+        #jarFile=os.path.join(dir_path,'stanford-ner.jar')
+        #st=StanfordNERTagger(serFile,jarFile,encoding='utf-8')
+        #tokens_NER=tokens
+        #for tk in tokens:
+        #    if len(tk)==1:
+        #        tokens_NER.remove(tk)
+        #word_tag=st.tag(tokens_NER)
+    
+        #named_entities_tag =[]
+        #for tag in word_tag:
+        #    if tag[1]!='O':
+        #        named_entities_tag.append(tag)
+    
+        
 
-    def get_all_named_entities(self, doc):
+        pos = nltk.pos_tag(tokens)
+        
+        ##NN	Noun, singular or mass
+        ##NNS	Noun, plural
+        ##NNP	Proper noun, singular
+        ##NNPS	Proper noun, plural
+        #namedEntityTags_set1 = [ "NN","NNS" ]#"NNPS""NN","NNS""NNP","NNPS"
+        namedEntityTags_set2 = [ "NNP" ]#"NNPS""NNPS"
+        named_entities = []
+        named_entities_tag =[]
+       
+        for word, tag in pos:
+            if tag in namedEntityTags_set2:
+                if word.isalpha() and len(word)>1:
+                   named_entities_tag.append(tag)
+                   named_entities.append(word)
+       # print named_entities
+
+    
+        return len(named_entities_tag)
+
+    def get_all_named_entities(self, docs):
         """Encodes document to number of named entities"""
         return [self.count_named_entities(d) for d in docs]
 
     def transform(self, docs, y=None):
         """The workhorse of this feature extractor"""
         resultList=self.get_all_named_entities(docs)
+       
         return np.transpose(np.matrix(resultList))
 
     def fit(self, docs, y=None):
@@ -186,6 +219,34 @@ class URLCountVectorizer(BaseEstimator,TransformerMixin):
     def fit(self, docs, y=None):
         """Returns `self` unless something different happens in train and test"""
         return self
+
+class LanguageMistakesVectorizer(BaseEstimator,TransformerMixin):
+    """Takes a list of documents and extracts count of English language Mistakes"""
+    _defaultLanguage='en-GB'
+    def __init__(self,language=None):
+        if language:
+           self._defaultLanguage=language
+        pass
+    def count_language_mistakes(self, doc):
+        """Returnes the count of English mistakes in the text """
+        tool=grammar_check.LanguageTool(self._defaultLanguage)
+        mistakes=tool.check(doc)
+        
+        return len(mistakes)
+    def get_all_mistake_count(self,docs):
+         """Encodes document to number of Language mistakes"""
+         return [self.count_language_mistakes(d) for d in docs]
+
+    def transform(self, docs, y=None):
+        """The workhorse of this feature extractor"""
+        resultList=self.get_all_mistake_count(docs)
+       
+        return np.transpose(np.matrix(resultList))
+
+    def fit(self, docs, y=None):
+        """Returns `self` unless something different happens in train and test"""
+        return self
+
 
 # Step 0. extracting email corpus and vocabulary
 # root_dir = 'dataset'
@@ -241,6 +302,11 @@ print scores
 
 # Step 2.  TF.IDF
 print "With TF.IDF"
+
+java_path = "C:/Program Files/Java/jdk-9.0.1/bin/java.exe"
+os.environ['JAVAHOME'] = java_path
+nltk.internals.config_java(java_path)
+
 documents2TfidfVector =TfidfVectorizer(vocabulary=vocabularyList)
 SVM_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
@@ -251,11 +317,11 @@ NB_pipeline=Pipeline([
     ('SVM',MultinomialNB()) 
 ])
 RF_pipeline=Pipeline([
-    ('tf',documents2TfidfVector),
+    ('tfIdf',documents2TfidfVector),
     ('Random Forest',RandomForestClassifier()) 
 ])
 KNN_pipeline=Pipeline([
-    ('tf',documents2TfidfVector),
+    ('tfIdf',documents2TfidfVector),
     ('Random Forest',KNeighborsClassifier()) 
 ])
 
@@ -271,14 +337,16 @@ print scores
 
 # Step 3. Feature component set F1...F5
 
-print "using feature set F1.F3"
+print "using feature set F1.F2.F3.F4"
 
 
-
-
+#note refined named entitity vectorizer with approproate tagging.
+#Note 
 featureSet=FeatureUnion([
     ('Count of URLs',URLCountVectorizer()),
-    ('Count of words',WordCountVectorizer())
+    ('Count of Language Mistakes',LanguageMistakesVectorizer()),
+    ('Count of words',WordCountVectorizer()),
+    ('Count of Named Entities',NameEntityCountVectorizer())
 ])
 
 SVM_pipeline=Pipeline([
@@ -308,3 +376,7 @@ predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train)
 scores=evaluate_prediction(labels_test,predictions)
 
 print scores
+
+#### Step 5. using PCA(TF.IDF)
+
+

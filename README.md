@@ -25,3 +25,11 @@ F5 = number of suspected links (classified as unsafe, or no matching with words 
 
 8. Suggest a new feature representation of your own that you may think is more relevant to the nature of message you have, and test its performances with the classifiers. 
 
+## Dependencies
+
+1. Scikit-learn
+2. NLTK
+3. grammar-check ( require that )
+    * Run run langaugeTool , in grammar-check package with commange 
+        * java --add-modules java.xml.bind -cp languagetool-server.jar org.languagetool.server.HTTPServer --port 8081
+
