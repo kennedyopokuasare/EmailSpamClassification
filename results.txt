@@ -1,20 +1,20 @@
 With TF
-[{'Average Precision score': 0.69594155844155847, 'fp': 16, 'Recall': 0.9285714285714286, 'Precision': 0.70909090909090911, 'tp': 39, 'tn': 22, 'F1 Score': 0.8041237113402062
-2, 'Classifier': 'K Nearest Neighbour', 'fn': 3}, {'Average Precision score': 0.84955703211517175, 'fp': 5, 'Recall': 0.90476190476190477, 'Precision': 0.88372093023255816, '
-tp': 38, 'tn': 33, 'F1 Score': 0.89411764705882357, 'Classifier': 'SVM', 'fn': 4}, {'Average Precision score': 0.88258281573498965, 'fp': 5, 'Recall': 0.97619047619047616, 'P
-recision': 0.89130434782608692, 'tp': 41, 'tn': 33, 'F1 Score': 0.93181818181818177, 'Classifier': 'Random Forest', 'fn': 1}, {'Average Precision score': 0.95476190476190481,
- 'fp': 0, 'Recall': 0.90476190476190477, 'Precision': 1.0, 'tp': 38, 'tn': 38, 'F1 Score': 0.95000000000000007, 'Classifier': 'Naive Bayesian', 'fn': 4}]
+[{"Average Precision score": 0.69594155844155847, "fp": 16, "Recall": 0.9285714285714286, "Precision": 0.70909090909090911, "tp": 39, "tn": 22, "F1 Score": 0.8041237113402062
+2, "Classifier": "K Nearest Neighbour", "fn": 3}, {"Average Precision score": 0.84955703211517175, "fp": 5, "Recall": 0.90476190476190477, "Precision": 0.88372093023255816, "
+tp": 38, "tn": 33, "F1 Score": 0.89411764705882357, "Classifier": "SVM", "fn": 4}, {"Average Precision score": 0.88258281573498965, "fp": 5, "Recall": 0.97619047619047616, "P
+recision": 0.89130434782608692, "tp": 41, "tn": 33, "F1 Score": 0.93181818181818177, "Classifier": "Random Forest", "fn": 1}, {"Average Precision score": 0.95476190476190481,
+ "fp": 0, "Recall": 0.90476190476190477, "Precision": 1.0, "tp": 38, "tn": 38, "F1 Score": 0.95000000000000007, "Classifier": "Naive Bayesian", "fn": 4}]
 
 With TF.IDF
-[{'Average Precision score': 0.88855981416957031, 'fp': 3, 'Recall': 0.90476190476190477, 'Precision': 0.92682926829268297, 'tp': 38, 'tn': 35, 'F1 Score': 0.9156626506024095
-9, 'Classifier': 'K Nearest Neighbour', 'fn': 4}, {'Average Precision score': 0.94328626799557036, 'fp': 2, 'Recall': 0.97619047619047616, 'Precision': 0.95348837209302328, '
-tp': 41, 'tn': 36, 'F1 Score': 0.96470588235294119, 'Classifier': 'SVM', 'fn': 1}, {'Average Precision score': 0.92213203463203464, 'fp': 3, 'Recall': 0.97619047619047616, 'P
-recision': 0.93181818181818177, 'tp': 41, 'tn': 35, 'F1 Score': 0.95348837209302328, 'Classifier': 'Random Forest', 'fn': 1}, {'Average Precision score': 0.93214285714285716,
- 'fp': 0, 'Recall': 0.8571428571428571, 'Precision': 1.0, 'tp': 36, 'tn': 38, 'F1 Score': 0.92307692307692302, 'Classifier': 'Naive Bayesian', 'fn': 6}]
+[{"Average Precision score": 0.88855981416957031, "fp": 3, "Recall": 0.90476190476190477, "Precision": 0.92682926829268297, "tp": 38, "tn": 35, "F1 Score": 0.9156626506024095
+9, "Classifier": "K Nearest Neighbour", "fn": 4}, {"Average Precision score": 0.94328626799557036, "fp": 2, "Recall": 0.97619047619047616, "Precision": 0.95348837209302328, "
+tp": 41, "tn": 36, "F1 Score": 0.96470588235294119, "Classifier": "SVM", "fn": 1}, {"Average Precision score": 0.92213203463203464, "fp": 3, "Recall": 0.97619047619047616, "P
+recision": 0.93181818181818177, "tp": 41, "tn": 35, "F1 Score": 0.95348837209302328, "Classifier": "Random Forest", "fn": 1}, {"Average Precision score": 0.93214285714285716,
+ "fp": 0, "Recall": 0.8571428571428571, "Precision": 1.0, "tp": 36, "tn": 38, "F1 Score": 0.92307692307692302, "Classifier": "Naive Bayesian", "fn": 6}]
 
 using feature set F1.F2.F3.F4
-[{'Average Precision score': 0.54268707482993195, 'fp': 12, 'Recall': 0.38095238095238093, 'Precision': 0.5714285714285714, 'tp': 16, 'tn': 26, 'F1 Score': 0.4571428571428570
-7, 'Classifier': 'K Nearest Neighbour', 'fn': 26}, {'Average Precision score': 0.51340048840048835, 'fp': 38, 'Recall': 0.95238095238095233, 'Precision': 0.51282051282051277,
- 'tp': 40, 'tn': 0, 'F1 Score': 0.66666666666666663, 'Classifier': 'SVM', 'fn': 2}, {'Average Precision score': 0.64379800307219659, 'fp': 8, 'Recall': 0.54761904761904767, '
-Precision': 0.74193548387096775, 'tp': 23, 'tn': 30, 'F1 Score': 0.63013698630136994, 'Classifier': 'Random Forest', 'fn': 19}, {'Average Precision score': 0.6180860805860806
-1, 'fp': 7, 'Recall': 0.45238095238095238, 'Precision': 0.73076923076923073, 'tp': 19, 'tn': 31, 'F1 Score': 0.55882352941176472, 'Classifier': 'Naive Bayesian', 'fn': 23}]
+[{"Average Precision score": 0.54268707482993195, "fp": 12, "Recall": 0.38095238095238093, "Precision": 0.5714285714285714, "tp": 16, "tn": 26, "F1 Score": 0.4571428571428570
+7, "Classifier": "K Nearest Neighbour", "fn": 26}, {"Average Precision score": 0.51340048840048835, "fp": 38, "Recall": 0.95238095238095233, "Precision": 0.51282051282051277,
+ "tp": 40, "tn": 0, "F1 Score": 0.66666666666666663, "Classifier": "SVM", "fn": 2}, {"Average Precision score": 0.64379800307219659, "fp": 8, "Recall": 0.54761904761904767, "
+Precision": 0.74193548387096775, "tp": 23, "tn": 30, "F1 Score": 0.63013698630136994, "Classifier": "Random Forest", "fn": 19}, {"Average Precision score": 0.6180860805860806
+1, "fp": 7, "Recall": 0.45238095238095238, "Precision": 0.73076923076923073, "tp": 19, "tn": 31, "F1 Score": 0.55882352941176472, "Classifier": "Naive Bayesian", "fn": 23}]

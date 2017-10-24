@@ -17,7 +17,7 @@ from sklearn.svm import LinearSVC
 from sklearn.feature_extraction.text import TfidfTransformer, TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction import DictVectorizer
-from sklearn.preprocessing import LabelBinarizer
+from sklearn.preprocessing import LabelBinarizer,scale
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.metrics import precision_score, recall_score, f1_score, average_precision_score
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -76,14 +76,14 @@ def evaluate_prediction(labels_test, predictions):
     for key, value in predictions.iteritems():
         confusion_matrix
         evaluation = {}
-        evaluation['Classifier'] = key
+        evaluation["Classifier"] = key
 
-        evaluation['Recall'] = recall_score(labels_test, value)
-        evaluation['Precision'] = precision_score(labels_test, value)
-        evaluation['F1 Score'] = f1_score(labels_test, value)
-        evaluation['Average Precision score'] = average_precision_score(
+        evaluation["Recall"] = recall_score(labels_test, value)
+        evaluation["Precision"] = precision_score(labels_test, value)
+        evaluation["F1 Score"] = f1_score(labels_test, value)
+        evaluation["Average Precision score"] = average_precision_score(
             labels_test, value)
-        evaluation['tn'],evaluation['fp'],evaluation['fn'],evaluation['tp'] = confusion_matrix(labels_test, value).ravel()
+        evaluation["tn"],evaluation["fp"],evaluation["fn"],evaluation["tp"] = confusion_matrix(labels_test, value).ravel()
         evaluationTable.append(evaluation)
     return evaluationTable
 
@@ -249,7 +249,31 @@ class LanguageMistakesVectorizer(BaseEstimator,TransformerMixin):
         """Returns `self` unless something different happens in train and test"""
         return self
 
+class DenseTransformer(TransformerMixin):
+    "Takes a sparse array and converts it to dense array"
 
+    def transform(self, X, y=None, **fit_params):
+    
+        return X.todense()
+
+    def fit_transform(self, X, y=None, **fit_params):
+        self.fit(X, y, **fit_params)
+        return self.transform(X)
+
+    def fit(self, X, y=None, **fit_params):
+        return self
+class PCAScaleTranformer(TransformerMixin):
+    "Takes PCA Matrix and coverts to entries of absolute values"
+    def transform(self, X, y=None, **fit_params):
+       
+        return np.absolute(X)
+        
+    def fit_transform(self, X, y=None, **fit_params):
+        self.fit(X, y, **fit_params)
+        return self.transform(X)
+
+    def fit(self, X, y=None, **fit_params):
+        return self
 # Step 0. extracting email corpus and vocabulary
 # root_dir = 'dataset'
 # make_Dictionary(root_dir)
@@ -269,7 +293,7 @@ document_train, document_test, labels_train, labels_test = train_test_split(docu
 
 # step 1. Only term frequency feature
 print "With TF"
-word2vectTransformer=CountVectorizer(vocabulary=vocabularyList)
+word2vectTransformer=CountVectorizer(vocabulary=vocabularyList,decode_error='ignore')
 
 SVM_pipeline=Pipeline([
     ('tf',word2vectTransformer),
@@ -309,7 +333,7 @@ java_path = "C:/Program Files/Java/jdk-9.0.1/bin/java.exe"
 os.environ['JAVAHOME'] = java_path
 nltk.internals.config_java(java_path)
 
-documents2TfidfVector =TfidfVectorizer(vocabulary=vocabularyList)
+documents2TfidfVector =TfidfVectorizer(vocabulary=vocabularyList,decode_error='ignore')
 SVM_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
     ('SVM',LinearSVC()) 
@@ -381,26 +405,32 @@ print "using feature set F1.F2.F3.F4"
 
 #### Step 5. using PCA(TF.IDF)
 
-# Note PCA for sparce matrix is TrancatedSVD
+print "PCA (TF.IDF"
 
 SVM_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
-    ('PCA',TruncatedSVD(algorithm='randomized', n_components=10, n_iter=7,random_state=42, tol=0.0)),#PCA for spare matrix
+    ('to_dense', DenseTransformer()), 
+    ('PCA',PCA(n_components=10)),#PCA for spare matrix
     ('SVM',LinearSVC()) 
 ])
 NB_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
-    ('PCA',TruncatedSVD(algorithm='randomized', n_components=10, n_iter=7,random_state=42, tol=0.0)),#PCA for spare matrix
+    ('to_dense', DenseTransformer()), 
+    ('PCA',PCA( n_components=10)),#PCA for spare matrix
+    ('Non Neg Scalling',PCAScaleTranformer()),
     ('SVM',MultinomialNB()) 
 ])
+
 RF_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
-    ('PCA',TruncatedSVD(algorithm='randomized', n_components=10, n_iter=7,random_state=42, tol=0.0)),#PCA for spare matrix
+    ('to_dense', DenseTransformer()), 
+    ('PCA',PCA( n_components=10)),#PCA for spare matrix
     ('Random Forest',RandomForestClassifier()) 
 ])
 KNN_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
-    ('PCA',TruncatedSVD(algorithm='randomized', n_components=10, n_iter=7,random_state=42, tol=0.0)),#PCA for spare matrix
+    ('to_dense', DenseTransformer()), 
+    ('PCA',PCA(n_components=10)),#PCA for spare matrix
     ('Random Forest',KNeighborsClassifier()) 
 ])
 
