@@ -233,7 +233,13 @@ class LanguageMistakesVectorizer(BaseEstimator,TransformerMixin):
     def count_language_mistakes(self, doc):
         """Returnes the count of English mistakes in the text """
         tool=grammar_check.LanguageTool(self._defaultLanguage)
-        mistakes=tool.check(doc)
+        encodedText=doc.decode("utf-8",errors='replace')
+        try:
+            mistakes=tool.check(encodedText)
+            
+        except Exception  as e:
+            mistakes=[]
+        
         
         return len(mistakes)
     def get_all_mistake_count(self,docs):
@@ -364,49 +370,49 @@ print scores
 
 # Step 3. Feature component set F1...F5
 
-print "using feature set F1.F2.F3.F4"
+print "With feature set F1.F2.F3.F4"
 
 
 #note refined named entitity vectorizer with approproate tagging.
-#Note 
-# featureSet=FeatureUnion([
-#     ('Count of URLs',URLCountVectorizer()),
-#     ('Count of Language Mistakes',LanguageMistakesVectorizer()),
-#     ('Count of words',WordCountVectorizer()),
-#     ('Count of Named Entities',NameEntityCountVectorizer())
-# ])
+#Note LanguateMistakesVectorizer requires a running grammar-check server. check readme.md
+featureSet=FeatureUnion([
+    ('Count of URLs',URLCountVectorizer()),
+    ('Count of Language Mistakes',LanguageMistakesVectorizer()),
+    ('Count of words',WordCountVectorizer()),
+    ('Count of Named Entities',NameEntityCountVectorizer())
+])
 
-# SVM_pipeline=Pipeline([
-#     ('feature set',featureSet),
-#     ('SVM',LinearSVC()) 
-# ])
-# NB_pipeline=Pipeline([
-#     ('feature set',featureSet),
-#     ('SVM',MultinomialNB()) 
-# ])
-# RF_pipeline=Pipeline([
-#     ('feature set',featureSet),
-#     ('Random Forest',RandomForestClassifier()) 
-# ])
-# KNN_pipeline=Pipeline([
-#     ('feature set',featureSet),
-#     ('Random Forest',KNeighborsClassifier()) 
-# ])
+SVM_pipeline=Pipeline([
+    ('feature set',featureSet),
+    ('SVM',LinearSVC()) 
+])
+NB_pipeline=Pipeline([
+    ('feature set',featureSet),
+    ('SVM',MultinomialNB()) 
+])
+RF_pipeline=Pipeline([
+    ('feature set',featureSet),
+    ('Random Forest',RandomForestClassifier()) 
+])
+KNN_pipeline=Pipeline([
+    ('feature set',featureSet),
+    ('Random Forest',KNeighborsClassifier()) 
+])
 
-# predictions={}
+predictions={}
 
-# predictions["SVM"]=SVM_pipeline.fit( document_train,labels_train).predict(document_test)
-# predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
-# predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
-# predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions["SVM"]=SVM_pipeline.fit( document_train,labels_train).predict(document_test)
+predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
 
-# scores=evaluate_prediction(labels_test,predictions)
+scores=evaluate_prediction(labels_test,predictions)
 
-# print scores
+print scores
 
 #### Step 5. using PCA(TF.IDF)
 
-print "PCA (TF.IDF)"
+print "With PCA (TF.IDF)"
 
 SVM_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
@@ -446,18 +452,18 @@ scores=evaluate_prediction(labels_test,predictions)
 
 print scores
 
-print "LDA (TF.IDF)"
+# print "Using LDA (TF.IDF)"
 
 SVM_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
     ('to_dense', DenseTransformer()), 
-    ('PCA',LinearDiscriminantAnalysis(n_components=10)),
+    ('LDA',LinearDiscriminantAnalysis(n_components=10)),
     ('SVM',LinearSVC()) 
 ])
 NB_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
     ('to_dense', DenseTransformer()), 
-    ('PCA',LinearDiscriminantAnalysis( n_components=10)),
+    ('LDA',LinearDiscriminantAnalysis( n_components=10)),
     ('Non Neg Scalling',PCAScaleTranformer()),
     ('SVM',MultinomialNB()) 
 ])
@@ -465,13 +471,58 @@ NB_pipeline=Pipeline([
 RF_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
     ('to_dense', DenseTransformer()), 
-    ('PCA',LinearDiscriminantAnalysis( n_components=10)),
+    ('LDA',LinearDiscriminantAnalysis( n_components=10)),
     ('Random Forest',RandomForestClassifier()) 
 ])
 KNN_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
     ('to_dense', DenseTransformer()), 
-    ('PCA',LinearDiscriminantAnalysis(n_components=10)),
+    ('LDA',LinearDiscriminantAnalysis(n_components=10)),
+    ('Random Forest',KNeighborsClassifier()) 
+])
+
+predictions={}
+
+predictions["SVM"]=SVM_pipeline.fit( document_train,labels_train).predict(document_test)
+predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
+
+scores=evaluate_prediction(labels_test,predictions)
+
+print scores
+
+print "Using PCA (TF.IDF), LDA (TF.IDF)"
+
+featureSet=FeatureUnion([
+    ('PCA (TF.IDF)',PCA(n_components=10)),
+    ('LDA',LinearDiscriminantAnalysis( n_components=10))
+])
+
+SVM_pipeline=Pipeline([
+    ('tfIdf',documents2TfidfVector),
+    ('to_dense', DenseTransformer()), 
+    ('featureset',featureSet),
+    ('SVM',LinearSVC()) 
+])
+NB_pipeline=Pipeline([
+    ('tfIdf',documents2TfidfVector),
+    ('to_dense', DenseTransformer()), 
+    ('featureset',featureSet),
+    ('Non Neg Scalling',PCAScaleTranformer()),
+    ('SVM',MultinomialNB()) 
+])
+
+RF_pipeline=Pipeline([
+    ('tfIdf',documents2TfidfVector),
+    ('to_dense', DenseTransformer()), 
+    ('featureset',featureSet),
+    ('Random Forest',RandomForestClassifier()) 
+])
+KNN_pipeline=Pipeline([
+    ('tfIdf',documents2TfidfVector),
+    ('to_dense', DenseTransformer()), 
+    ('featureset',featureSet),
     ('Random Forest',KNeighborsClassifier()) 
 ])
 
