@@ -22,6 +22,7 @@ from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.metrics import precision_score, recall_score, f1_score, average_precision_score
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.decomposition import PCA
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.decomposition import TruncatedSVD
 from nltk.tag.stanford import StanfordNERTagger
 import grammar_check
@@ -405,18 +406,18 @@ print "using feature set F1.F2.F3.F4"
 
 #### Step 5. using PCA(TF.IDF)
 
-print "PCA (TF.IDF"
+print "PCA (TF.IDF)"
 
 SVM_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
     ('to_dense', DenseTransformer()), 
-    ('PCA',PCA(n_components=10)),#PCA for spare matrix
+    ('PCA',PCA(n_components=10)),
     ('SVM',LinearSVC()) 
 ])
 NB_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
     ('to_dense', DenseTransformer()), 
-    ('PCA',PCA( n_components=10)),#PCA for spare matrix
+    ('PCA',PCA( n_components=10)),
     ('Non Neg Scalling',PCAScaleTranformer()),
     ('SVM',MultinomialNB()) 
 ])
@@ -424,13 +425,53 @@ NB_pipeline=Pipeline([
 RF_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
     ('to_dense', DenseTransformer()), 
-    ('PCA',PCA( n_components=10)),#PCA for spare matrix
+    ('PCA',PCA( n_components=10)),
     ('Random Forest',RandomForestClassifier()) 
 ])
 KNN_pipeline=Pipeline([
     ('tfIdf',documents2TfidfVector),
     ('to_dense', DenseTransformer()), 
-    ('PCA',PCA(n_components=10)),#PCA for spare matrix
+    ('PCA',PCA(n_components=10)),
+    ('Random Forest',KNeighborsClassifier()) 
+])
+
+predictions={}
+
+predictions["SVM"]=SVM_pipeline.fit( document_train,labels_train).predict(document_test)
+predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
+
+scores=evaluate_prediction(labels_test,predictions)
+
+print scores
+
+print "LDA (TF.IDF)"
+
+SVM_pipeline=Pipeline([
+    ('tfIdf',documents2TfidfVector),
+    ('to_dense', DenseTransformer()), 
+    ('PCA',LinearDiscriminantAnalysis(n_components=10)),
+    ('SVM',LinearSVC()) 
+])
+NB_pipeline=Pipeline([
+    ('tfIdf',documents2TfidfVector),
+    ('to_dense', DenseTransformer()), 
+    ('PCA',LinearDiscriminantAnalysis( n_components=10)),
+    ('Non Neg Scalling',PCAScaleTranformer()),
+    ('SVM',MultinomialNB()) 
+])
+
+RF_pipeline=Pipeline([
+    ('tfIdf',documents2TfidfVector),
+    ('to_dense', DenseTransformer()), 
+    ('PCA',LinearDiscriminantAnalysis( n_components=10)),
+    ('Random Forest',RandomForestClassifier()) 
+])
+KNN_pipeline=Pipeline([
+    ('tfIdf',documents2TfidfVector),
+    ('to_dense', DenseTransformer()), 
+    ('PCA',LinearDiscriminantAnalysis(n_components=10)),
     ('Random Forest',KNeighborsClassifier()) 
 ])
 
