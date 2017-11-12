@@ -1,3 +1,4 @@
+# coding=utf-8
 # Dependencies
 # 1. numpy
 # 2. scipy
@@ -222,7 +223,27 @@ class URLCountVectorizer(BaseEstimator,TransformerMixin):
     def fit(self, docs, y=None):
         """Returns `self` unless something different happens in train and test"""
         return self
+class TargetedWordCountVectorizer(BaseEstimator,TransformerMixin):
+    """Takes a list of documents and extracts the count of targeted words in the each document"""
+    def __init__(self):
+        pass
+    def count_targeted_words(self,doc):
+        target_words=["£","$","%","!" "viagra", "penis", "billion", "billionaire", "lottery", "prize", "charity" , "USA", "Nigeria"]
+        target_hit_count= len([ word for word in target_words if word in doc ])
+        return target_hit_count
+        
+    def get_all_targeted_words_count(self,docs):
+        return [self.count_targeted_words(d) for d in docs]
+        
+    def transform(self, docs, y=None):
+        """The workhorse of this feature extractor"""
+        resultList=self.get_all_targeted_words_count(docs)
+       
+        return np.transpose(np.matrix(resultList))
 
+    def fit(self, docs, y=None):
+        """Returns `self` unless something different happens in train and test"""
+        return self
 class LanguageMistakesVectorizer(BaseEstimator,TransformerMixin):
     """Takes a list of documents and extracts count of English language Mistakes"""
     _defaultLanguage='en-GB'
@@ -291,12 +312,15 @@ vocabularyList=np.load("vocabulary.npy").tolist()
 documents=all_email_corpus['text']
 labels=all_email_corpus['class']
 
+
 binarizer=LabelBinarizer()
 binarisedLables=binarizer.fit_transform(labels).ravel()
 
 # x is document
 # y is the labels or classes
 document_train, document_test, labels_train, labels_test = train_test_split(documents, binarisedLables, test_size=0.40)
+
+
 
 # step 1. Only term frequency feature
 print "With TF"
@@ -536,3 +560,41 @@ predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train)
 scores=evaluate_prediction(labels_test,predictions)
 
 print scores
+ 
+ 
+print "Using target workds and symbols €,£,$,%,! viagra, penis, billion, billionaire, lottery, prize, charity , USA, Nigeria"
+# tg= TargetedWordCountVectorizer()
+#tg.fit(all_email_corpus)
+#print tg.get_all_targeted_words_count(documents)
+
+SVM_pipeline=Pipeline([
+    ('targeted_words',TargetedWordCountVectorizer()),
+    ('SVM',LinearSVC()) 
+])
+NB_pipeline=Pipeline([
+     ('targeted_words',TargetedWordCountVectorizer()),
+    ('SVM',MultinomialNB()) 
+])
+RF_pipeline=Pipeline([
+    ('targeted_words',TargetedWordCountVectorizer()),
+    ('Random Forest',RandomForestClassifier()) 
+])
+KNN_pipeline=Pipeline([
+    ('targeted_words',TargetedWordCountVectorizer()),
+    ('Random Forest',KNeighborsClassifier()) 
+])
+
+
+
+predictions={}
+predictions["SVM"]=SVM_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
+predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
+# print type(predictions)
+
+scores=evaluate_prediction(labels_test,predictions)
+
+
+print scores
+
