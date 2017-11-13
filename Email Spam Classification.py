@@ -8,10 +8,13 @@ import os
 import numpy as np
 import nltk
 import re
+import random
 from collections import Counter
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_validate,cross_val_predict
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import VotingClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix
 from sklearn.svm import LinearSVC
@@ -28,68 +31,310 @@ from sklearn.decomposition import TruncatedSVD
 from nltk.tag.stanford import StanfordNERTagger
 import grammar_check
 
-# #### Extracting F1 = number of URL, links in the message
+class EmailClassifier():
+    """
+     Classifies emails into spam or ham based on several features 
+     The Classifier uses the Support Vector Machine, Random Forest, Naive Bayesian, K Nearest Neighbour
+     The classifier using cross validation in training and evaluation, and also implements a majority votinig rule
+     to classify emails into spam or ham
+    """
+    def __init__(self):
+        pass
 
+    # run this method onces, and then load the saved data and use subsequently
+    # method saves dict_enron.npy, all_email_corpus
+    def make_Dictionary(root_dir):
+        all_email_corpus = {'text': [], 'class': []}
 
-# run this method onces, and then load the saved data and use subsequently
-# method saves dict_enron.npy, all_email_corpus
-def make_Dictionary(root_dir):
-    all_email_corpus = {'text': [], 'class': []}
+        emails_dirs = [os.path.join(root_dir, f) for f in os.listdir(root_dir)]
+        all_words = []
+        for emails_dir in emails_dirs:
+            dirs = [os.path.join(emails_dir, f) for f in os.listdir(emails_dir)]
+            for d in dirs:
+                emails = [os.path.join(d, f) for f in os.listdir(d)]
+                for mail in emails:
+                    with open(mail) as m:
+                        email_words = []
+                        for line in m:
+                            words = nltk.word_tokenize(line)  # line.split()
+                            all_words += words
+                            email_words += words
+                        emailClass = 'ham'
+                        print mail.split(".")[-2]
+                        if mail.split(".")[-2] == 'spam':
+                            emailClass = 'spam'
+                        all_email_corpus['text'].append(' '.join(email_words))
+                        all_email_corpus['class'].append(
+                            emailClass)  # 1 is spam , 0 is ham
 
-    emails_dirs = [os.path.join(root_dir, f) for f in os.listdir(root_dir)]
-    all_words = []
-    for emails_dir in emails_dirs:
-        dirs = [os.path.join(emails_dir, f) for f in os.listdir(emails_dir)]
-        for d in dirs:
-            emails = [os.path.join(d, f) for f in os.listdir(d)]
-            for mail in emails:
-                with open(mail) as m:
-                    email_words = []
-                    for line in m:
-                        words = nltk.word_tokenize(line)  # line.split()
-                        all_words += words
-                        email_words += words
-                    emailClass = 'ham'
-                    print mail.split(".")[-2]
-                    if mail.split(".")[-2] == 'spam':
-                        emailClass = 'spam'
-                    all_email_corpus['text'].append(' '.join(email_words))
-                    all_email_corpus['class'].append(
-                        emailClass)  # 1 is spam , 0 is ham
+        dictionary = Counter(all_words)
+        list_to_remove = dictionary.keys()
 
-    dictionary = Counter(all_words)
-    list_to_remove = dictionary.keys()
+        for item in list_to_remove:
+            if item.isalpha() == False:
+                del dictionary[item]
+            elif len(item) == 1:
+                del dictionary[item]
+        dictionary = dictionary.most_common(3000)
+        vocabulary = sorted([key for (key, value) in dictionary])
+        np.save('vocabulary.npy', vocabulary)
+        np.save('all_email_corpus.npy', all_email_corpus)
 
-    for item in list_to_remove:
-        if item.isalpha() == False:
-            del dictionary[item]
-        elif len(item) == 1:
-            del dictionary[item]
-    dictionary = dictionary.most_common(3000)
-    vocabulary = sorted([key for (key, value) in dictionary])
-    np.save('vocabulary.npy', vocabulary)
-    np.save('all_email_corpus.npy', all_email_corpus)
+        return vocabulary, all_email_corpus
 
-    return vocabulary, all_email_corpus
+    def classify_emails(self,SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables):
 
+            classifier_Labels=["SVM","Naive Bayesian","Random Forest","K Nearest Neighbour(K=5)","Majority Vote"]
+            majorityVoteClassifier=VotingClassifier(estimators=[("SVM",SVM_pipeline),("Naive Bayesian",NB_pipeline),("Random Forest",RF_pipeline),("K-Nearest Neigbour",KNN_pipeline)],voting='hard')
+            for clf, label in zip([SVM_pipeline, NB_pipeline, RF_pipeline,KNN_pipeline, majorityVoteClassifier], classifier_Labels):
+                scoring = ['accuracy','precision', 'recall', 'f1']
+                crossValidationResults = cross_validate(clf, documents, binarisedLables, cv=5, scoring=scoring,return_train_score=False)
+                accuracy=crossValidationResults['test_accuracy']
+                precision=crossValidationResults['test_precision']
+                recall=crossValidationResults['test_recall']
+                f1=crossValidationResults['test_f1']
+                metrics = {}
+                metrics["Classifier"] = label
+                metrics["Recall"] = "%0.2f (+/- %0.2f)" % (recall.mean(),recall.std())
+                metrics["Precision"] = "%0.2f (+/- %0.2f)" % (precision.mean(),precision.std())
+                metrics["F1 Score"] = "%0.2f (+/- %0.2f)" % (f1.mean(),f1.std())
+                metrics["Accuracy"] = "%0.2f (+/- %0.2f)" % (accuracy.mean(),accuracy.std())
 
-def evaluate_prediction(labels_test, predictions):
-    evaluationTable = []
-    for key, value in predictions.iteritems():
-        confusion_matrix
-        evaluation = {}
-        evaluation["Classifier"] = key
+            
 
-        evaluation["Recall"] = recall_score(labels_test, value)
-        evaluation["Precision"] = precision_score(labels_test, value)
-        evaluation["F1 Score"] = f1_score(labels_test, value)
-        evaluation["Average Precision score"] = average_precision_score(
-            labels_test, value)
-        evaluation["tn"],evaluation["fp"],evaluation["fn"],evaluation["tp"] = confusion_matrix(labels_test, value).ravel()
-        evaluationTable.append(evaluation)
-    return evaluationTable
+                y_pred = cross_val_predict(clf, documents, binarisedLables)
+                allSpam=[index for index,value in enumerate(y_pred) if value==1]
+                allHam=[index for index,value in enumerate(y_pred) if value==0]
+                spamCount= len(allSpam)
+                HamCount= len(allHam)
+                metrics["Spam Count"] = spamCount
+                metrics["Ham Count"] = HamCount
+                print metrics
 
+                if label=="Majority Vote":
+                    sampledSpam=random.sample(allSpam,5)
+                    print "\n\n10 randomly sample spam examples"
+                    for entry in sampledSpam:
+                        print documents[entry]+"\n"
+                    
+                    sampledHam=random.sample(allHam,5)
+                    print "\n\n10 randomly sample ham examples"
+                    for entry in sampledHam:
+                        print documents[entry]+"\n"
+    
+    def evaluate_prediction(self,labels_test, predictions):
+        evaluationTable = []
+        for key, value in predictions.iteritems():
+            confusion_matrix
+            evaluation = {}
+            evaluation["Classifier"] = key
 
+            evaluation["Recall"] = recall_score(labels_test, value)
+            evaluation["Precision"] = precision_score(labels_test, value)
+            evaluation["F1 Score"] = f1_score(labels_test, value)
+            evaluation["Average Precision score"] = average_precision_score(
+                labels_test, value)
+            evaluation["tn"],evaluation["fp"],evaluation["fn"],evaluation["tp"] = confusion_matrix(labels_test, value).ravel()
+            evaluationTable.append(evaluation)
+        return evaluationTable
+
+    def using_TF(self):
+        print "With TF"
+        word2vectTransformer=CountVectorizer(vocabulary=vocabularyList,decode_error='ignore')
+
+        SVM_pipeline=Pipeline([
+            ('tf',word2vectTransformer),
+            ('SVM',LinearSVC()) 
+        ])
+        NB_pipeline=Pipeline([
+            ('tf',word2vectTransformer),
+            ('SVM',MultinomialNB()) 
+        ])
+        RF_pipeline=Pipeline([
+            ('tf',word2vectTransformer),
+            ('Random Forest',RandomForestClassifier()) 
+        ])
+        KNN_pipeline=Pipeline([
+            ('tf',word2vectTransformer),
+            ('Random Forest',KNeighborsClassifier()) 
+        ])
+        self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
+    def using_TFIDF(self):
+        print "With TF.IDF"
+
+        java_path = "C:/Program Files/Java/jdk-9.0.1/bin/java.exe"
+        os.environ['JAVAHOME'] = java_path
+        nltk.internals.config_java(java_path)
+
+        documents2TfidfVector =TfidfVectorizer(vocabulary=vocabularyList,decode_error='ignore')
+        SVM_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('SVM',LinearSVC()) 
+        ])
+        NB_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('SVM',MultinomialNB()) 
+        ])
+        RF_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('Random Forest',RandomForestClassifier()) 
+        ])
+        KNN_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('Random Forest',KNeighborsClassifier()) 
+        ])
+        self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
+    def using_F1_F2_F3_F4_F5(self):
+
+        print "With feature set F1.F2.F3.F4"
+
+        #Note LanguateMistakesVectorizer requires a running grammar-check server. check readme.md
+        featureSet=FeatureUnion([
+            ('Count of URLs',URLCountVectorizer()),
+            ('Count of Language Mistakes',LanguageMistakesVectorizer()),
+            ('Count of words',WordCountVectorizer()),
+            ('Count of Named Entities',NameEntityCountVectorizer())
+        ])
+
+        SVM_pipeline=Pipeline([
+            ('feature set',featureSet),
+            ('SVM',LinearSVC()) 
+        ])
+        NB_pipeline=Pipeline([
+            ('feature set',featureSet),
+            ('SVM',MultinomialNB()) 
+        ])
+        RF_pipeline=Pipeline([
+            ('feature set',featureSet),
+            ('Random Forest',RandomForestClassifier()) 
+        ])
+        KNN_pipeline=Pipeline([
+            ('feature set',featureSet),
+            ('Random Forest',KNeighborsClassifier()) 
+        ])
+        self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
+    def using_PCA_of_TFIDF(self):
+
+        print "With PCA (TF.IDF)"
+
+        SVM_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('PCA',PCA(n_components=10)),
+            ('SVM',LinearSVC()) 
+        ])
+        NB_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('PCA',PCA( n_components=10)),
+            ('Non Neg Scalling',PCAScaleTranformer()),
+            ('SVM',MultinomialNB()) 
+        ])
+
+        RF_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('PCA',PCA( n_components=10)),
+            ('Random Forest',RandomForestClassifier()) 
+        ])
+        KNN_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('PCA',PCA(n_components=10)),
+            ('Random Forest',KNeighborsClassifier()) 
+        ])
+        self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
+    def using_LDA_of_TFIDF(self):
+
+        print "Using LDA (TF.IDF)"
+
+        SVM_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('LDA',LinearDiscriminantAnalysis(n_components=10)),
+            ('SVM',LinearSVC()) 
+        ])
+        NB_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('LDA',LinearDiscriminantAnalysis( n_components=10)),
+            ('Non Neg Scalling',PCAScaleTranformer()),
+            ('SVM',MultinomialNB()) 
+        ])
+
+        RF_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('LDA',LinearDiscriminantAnalysis( n_components=10)),
+            ('Random Forest',RandomForestClassifier()) 
+        ])
+        KNN_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('LDA',LinearDiscriminantAnalysis(n_components=10)),
+            ('Random Forest',KNeighborsClassifier()) 
+        ])
+
+        self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
+    def using_PCA_and_LDA_of_TFIDF(self):
+
+            print "Using PCA (TF.IDF), LDA (TF.IDF)"
+
+            featureSet=FeatureUnion([
+                ('PCA (TF.IDF)',PCA(n_components=10)),
+                ('LDA',LinearDiscriminantAnalysis( n_components=10))
+            ])
+
+            SVM_pipeline=Pipeline([
+                ('tfIdf',documents2TfidfVector),
+                ('to_dense', DenseTransformer()), 
+                ('featureset',featureSet),
+                ('SVM',LinearSVC()) 
+            ])
+            NB_pipeline=Pipeline([
+                ('tfIdf',documents2TfidfVector),
+                ('to_dense', DenseTransformer()), 
+                ('featureset',featureSet),
+                ('Non Neg Scalling',PCAScaleTranformer()),
+                ('SVM',MultinomialNB()) 
+            ])
+
+            RF_pipeline=Pipeline([
+                ('tfIdf',documents2TfidfVector),
+                ('to_dense', DenseTransformer()), 
+                ('featureset',featureSet),
+                ('Random Forest',RandomForestClassifier()) 
+            ])
+            KNN_pipeline=Pipeline([
+                ('tfIdf',documents2TfidfVector),
+                ('to_dense', DenseTransformer()), 
+                ('featureset',featureSet),
+                ('Random Forest',KNeighborsClassifier()) 
+            ])
+
+            self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
+    def using_suggested_features(self):
+
+        print "Using target workds and symbols €,£,$,%,! viagra, penis, billion, billionaire, lottery, prize, charity , USA, Nigeria"
+
+        SVM_pipeline=Pipeline([
+            ('targeted_words',TargetedWordCountVectorizer()),
+            ('SVM',LinearSVC()) 
+        ])
+        NB_pipeline=Pipeline([
+            ('targeted_words',TargetedWordCountVectorizer()),
+            ('SVM',MultinomialNB()) 
+        ])
+        RF_pipeline=Pipeline([
+            ('targeted_words',TargetedWordCountVectorizer()),
+            ('Random Forest',RandomForestClassifier()) 
+        ])
+        KNN_pipeline=Pipeline([
+            ('targeted_words',TargetedWordCountVectorizer()),
+            ('Random Forest',KNeighborsClassifier()) 
+        ])
+
+        self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
 class WordCountVectorizer(BaseEstimator, TransformerMixin):
     """Takes a list of documents and extracts word counts in the document"""
 
@@ -118,8 +363,6 @@ class WordCountVectorizer(BaseEstimator, TransformerMixin):
     def fit(self, docs, y=None):
         """Returns `self` unless something different happens in train and test"""
         return self
-
-
 class NameEntityCountVectorizer(BaseEstimator, TransformerMixin):
     """Takes a document and extracts count of named entities.
         This class uses the NLTK parts of speach tagger
@@ -142,7 +385,7 @@ class NameEntityCountVectorizer(BaseEstimator, TransformerMixin):
         #        tokens_NER.remove(tk)
         #word_tag=st.tag(tokens_NER)
     
-        #named_entities_tag =[]
+        named_entities_tag =[]
         #for tag in word_tag:
         #    if tag[1]!='O':
         #        named_entities_tag.append(tag)
@@ -183,7 +426,6 @@ class NameEntityCountVectorizer(BaseEstimator, TransformerMixin):
     def fit(self, docs, y=None):
         """Returns `self` unless something different happens in train and test"""
         return self
-
 class URLCountVectorizer(BaseEstimator,TransformerMixin):
     """Takes a list of documents and extracts count of URLs,links in document"""
     def __init__(self):
@@ -276,7 +518,6 @@ class LanguageMistakesVectorizer(BaseEstimator,TransformerMixin):
     def fit(self, docs, y=None):
         """Returns `self` unless something different happens in train and test"""
         return self
-
 class DenseTransformer(TransformerMixin):
     "Takes a sparse array and converts it to dense array"
 
@@ -302,11 +543,7 @@ class PCAScaleTranformer(TransformerMixin):
 
     def fit(self, X, y=None, **fit_params):
         return self
-# Step 0. extracting email corpus and vocabulary
-# root_dir = 'dataset'
-# make_Dictionary(root_dir)
 
-# step 0.1. 
 all_email_corpus=np.load("all_email_corpus.npy").item()
 vocabularyList=np.load("vocabulary.npy").tolist()
 documents=all_email_corpus['text']
@@ -316,285 +553,7 @@ labels=all_email_corpus['class']
 binarizer=LabelBinarizer()
 binarisedLables=binarizer.fit_transform(labels).ravel()
 
-# x is document
-# y is the labels or classes
-document_train, document_test, labels_train, labels_test = train_test_split(documents, binarisedLables, test_size=0.40)
+#document_train, document_test, labels_train, labels_test = train_test_split(documents, binarisedLables, test_size=0.40)
 
-
-
-# step 1. Only term frequency feature
-print "With TF"
-word2vectTransformer=CountVectorizer(vocabulary=vocabularyList,decode_error='ignore')
-
-SVM_pipeline=Pipeline([
-    ('tf',word2vectTransformer),
-    ('SVM',LinearSVC()) 
-])
-NB_pipeline=Pipeline([
-    ('tf',word2vectTransformer),
-    ('SVM',MultinomialNB()) 
-])
-RF_pipeline=Pipeline([
-    ('tf',word2vectTransformer),
-    ('Random Forest',RandomForestClassifier()) 
-])
-KNN_pipeline=Pipeline([
-    ('tf',word2vectTransformer),
-    ('Random Forest',KNeighborsClassifier()) 
-])
-
-
-
-predictions={}
-predictions["SVM"]=SVM_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
-# print type(predictions)
-
-scores=evaluate_prediction(labels_test,predictions)
-
-
-print scores
-
-# Step 2.  TF.IDF
-print "With TF.IDF"
-
-java_path = "C:/Program Files/Java/jdk-9.0.1/bin/java.exe"
-os.environ['JAVAHOME'] = java_path
-nltk.internals.config_java(java_path)
-
-documents2TfidfVector =TfidfVectorizer(vocabulary=vocabularyList,decode_error='ignore')
-SVM_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('SVM',LinearSVC()) 
-])
-NB_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('SVM',MultinomialNB()) 
-])
-RF_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('Random Forest',RandomForestClassifier()) 
-])
-KNN_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('Random Forest',KNeighborsClassifier()) 
-])
-
-predictions={}
-predictions["SVM"]=SVM_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
-
-scores=evaluate_prediction(labels_test,predictions)
-
-print scores
-
-# Step 3. Feature component set F1...F5
-
-print "With feature set F1.F2.F3.F4"
-
-
-#note refined named entitity vectorizer with approproate tagging.
-#Note LanguateMistakesVectorizer requires a running grammar-check server. check readme.md
-featureSet=FeatureUnion([
-    ('Count of URLs',URLCountVectorizer()),
-    ('Count of Language Mistakes',LanguageMistakesVectorizer()),
-    ('Count of words',WordCountVectorizer()),
-    ('Count of Named Entities',NameEntityCountVectorizer())
-])
-
-SVM_pipeline=Pipeline([
-    ('feature set',featureSet),
-    ('SVM',LinearSVC()) 
-])
-NB_pipeline=Pipeline([
-    ('feature set',featureSet),
-    ('SVM',MultinomialNB()) 
-])
-RF_pipeline=Pipeline([
-    ('feature set',featureSet),
-    ('Random Forest',RandomForestClassifier()) 
-])
-KNN_pipeline=Pipeline([
-    ('feature set',featureSet),
-    ('Random Forest',KNeighborsClassifier()) 
-])
-
-predictions={}
-
-predictions["SVM"]=SVM_pipeline.fit( document_train,labels_train).predict(document_test)
-predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
-
-scores=evaluate_prediction(labels_test,predictions)
-
-print scores
-
-#### Step 5. using PCA(TF.IDF)
-
-print "With PCA (TF.IDF)"
-
-SVM_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('PCA',PCA(n_components=10)),
-    ('SVM',LinearSVC()) 
-])
-NB_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('PCA',PCA( n_components=10)),
-    ('Non Neg Scalling',PCAScaleTranformer()),
-    ('SVM',MultinomialNB()) 
-])
-
-RF_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('PCA',PCA( n_components=10)),
-    ('Random Forest',RandomForestClassifier()) 
-])
-KNN_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('PCA',PCA(n_components=10)),
-    ('Random Forest',KNeighborsClassifier()) 
-])
-
-predictions={}
-
-predictions["SVM"]=SVM_pipeline.fit( document_train,labels_train).predict(document_test)
-predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
-
-scores=evaluate_prediction(labels_test,predictions)
-
-print scores
-
-# print "Using LDA (TF.IDF)"
-
-SVM_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('LDA',LinearDiscriminantAnalysis(n_components=10)),
-    ('SVM',LinearSVC()) 
-])
-NB_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('LDA',LinearDiscriminantAnalysis( n_components=10)),
-    ('Non Neg Scalling',PCAScaleTranformer()),
-    ('SVM',MultinomialNB()) 
-])
-
-RF_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('LDA',LinearDiscriminantAnalysis( n_components=10)),
-    ('Random Forest',RandomForestClassifier()) 
-])
-KNN_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('LDA',LinearDiscriminantAnalysis(n_components=10)),
-    ('Random Forest',KNeighborsClassifier()) 
-])
-
-predictions={}
-
-predictions["SVM"]=SVM_pipeline.fit( document_train,labels_train).predict(document_test)
-predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
-
-scores=evaluate_prediction(labels_test,predictions)
-
-print scores
-
-print "Using PCA (TF.IDF), LDA (TF.IDF)"
-
-featureSet=FeatureUnion([
-    ('PCA (TF.IDF)',PCA(n_components=10)),
-    ('LDA',LinearDiscriminantAnalysis( n_components=10))
-])
-
-SVM_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('featureset',featureSet),
-    ('SVM',LinearSVC()) 
-])
-NB_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('featureset',featureSet),
-    ('Non Neg Scalling',PCAScaleTranformer()),
-    ('SVM',MultinomialNB()) 
-])
-
-RF_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('featureset',featureSet),
-    ('Random Forest',RandomForestClassifier()) 
-])
-KNN_pipeline=Pipeline([
-    ('tfIdf',documents2TfidfVector),
-    ('to_dense', DenseTransformer()), 
-    ('featureset',featureSet),
-    ('Random Forest',KNeighborsClassifier()) 
-])
-
-predictions={}
-
-predictions["SVM"]=SVM_pipeline.fit( document_train,labels_train).predict(document_test)
-predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
-
-scores=evaluate_prediction(labels_test,predictions)
-
-print scores
- 
- 
-print "Using target workds and symbols €,£,$,%,! viagra, penis, billion, billionaire, lottery, prize, charity , USA, Nigeria"
-# tg= TargetedWordCountVectorizer()
-#tg.fit(all_email_corpus)
-#print tg.get_all_targeted_words_count(documents)
-
-SVM_pipeline=Pipeline([
-    ('targeted_words',TargetedWordCountVectorizer()),
-    ('SVM',LinearSVC()) 
-])
-NB_pipeline=Pipeline([
-     ('targeted_words',TargetedWordCountVectorizer()),
-    ('SVM',MultinomialNB()) 
-])
-RF_pipeline=Pipeline([
-    ('targeted_words',TargetedWordCountVectorizer()),
-    ('Random Forest',RandomForestClassifier()) 
-])
-KNN_pipeline=Pipeline([
-    ('targeted_words',TargetedWordCountVectorizer()),
-    ('Random Forest',KNeighborsClassifier()) 
-])
-
-
-
-predictions={}
-predictions["SVM"]=SVM_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
-predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
-# print type(predictions)
-
-scores=evaluate_prediction(labels_test,predictions)
-
-
-print scores
-
+emailclassifier= EmailClassifier()
+emailclassifier.using_suggested_features()
