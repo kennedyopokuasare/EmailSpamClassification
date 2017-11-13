@@ -139,6 +139,7 @@ class EmailClassifier():
         return evaluationTable
 
     def using_TF(self):
+        """Uses term frequency feature for classification"""
         print "With TF"
         word2vectTransformer=CountVectorizer(vocabulary=vocabularyList,decode_error='ignore')
 
@@ -160,6 +161,7 @@ class EmailClassifier():
         ])
         self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
     def using_TFIDF(self):
+        """Uses term frequency x Inverse document frequency feature for classification"""
         print "With TF.IDF"
 
         java_path = "C:/Program Files/Java/jdk-9.0.1/bin/java.exe"
@@ -185,6 +187,12 @@ class EmailClassifier():
         ])
         self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
     def using_F1_F2_F3_F4_F5(self):
+        """Uses the following features for classification,
+            - Counts of Urls
+            - Count of Language Mistakes
+            - Count of words
+            - Count of named entities
+        """
 
         print "With feature set F1.F2.F3.F4"
 
@@ -214,6 +222,7 @@ class EmailClassifier():
         ])
         self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
     def using_PCA_of_TFIDF(self):
+        """Uses 10 Principal Components of term frequency x Inverse document frequency feature for classification"""
 
         print "With PCA (TF.IDF)"
 
@@ -245,6 +254,9 @@ class EmailClassifier():
         ])
         self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
     def using_LDA_of_TFIDF(self):
+        """Uses linear discriminant analyses of term frequency x Inverse document 
+        frequency feature for classification
+        """
 
         print "Using LDA (TF.IDF)"
 
@@ -277,43 +289,47 @@ class EmailClassifier():
 
         self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
     def using_PCA_and_LDA_of_TFIDF(self):
+        """Uses 10 Principal Componets and Linear discriminant analyses of
+         term frequency x Inverse document frequency feature for classification
+         """
 
-            print "Using PCA (TF.IDF), LDA (TF.IDF)"
+        print "Using PCA (TF.IDF), LDA (TF.IDF)"
 
-            featureSet=FeatureUnion([
-                ('PCA (TF.IDF)',PCA(n_components=10)),
-                ('LDA',LinearDiscriminantAnalysis( n_components=10))
-            ])
+        featureSet=FeatureUnion([
+            ('PCA (TF.IDF)',PCA(n_components=10)),
+            ('LDA',LinearDiscriminantAnalysis( n_components=10))
+        ])
 
-            SVM_pipeline=Pipeline([
-                ('tfIdf',documents2TfidfVector),
-                ('to_dense', DenseTransformer()), 
-                ('featureset',featureSet),
-                ('SVM',LinearSVC()) 
-            ])
-            NB_pipeline=Pipeline([
-                ('tfIdf',documents2TfidfVector),
-                ('to_dense', DenseTransformer()), 
-                ('featureset',featureSet),
-                ('Non Neg Scalling',PCAScaleTranformer()),
-                ('SVM',MultinomialNB()) 
-            ])
+        SVM_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('featureset',featureSet),
+            ('SVM',LinearSVC()) 
+        ])
+        NB_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('featureset',featureSet),
+            ('Non Neg Scalling',PCAScaleTranformer()),
+            ('SVM',MultinomialNB()) 
+        ])
 
-            RF_pipeline=Pipeline([
-                ('tfIdf',documents2TfidfVector),
-                ('to_dense', DenseTransformer()), 
-                ('featureset',featureSet),
-                ('Random Forest',RandomForestClassifier()) 
-            ])
-            KNN_pipeline=Pipeline([
-                ('tfIdf',documents2TfidfVector),
-                ('to_dense', DenseTransformer()), 
-                ('featureset',featureSet),
-                ('Random Forest',KNeighborsClassifier()) 
-            ])
+        RF_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('featureset',featureSet),
+            ('Random Forest',RandomForestClassifier()) 
+        ])
+        KNN_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('to_dense', DenseTransformer()), 
+            ('featureset',featureSet),
+            ('Random Forest',KNeighborsClassifier()) 
+        ])
 
-            self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
+        self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
     def using_suggested_features(self):
+        """Uses targetted word list occurrence counts feature for classification"""
 
         print "Using target workds and symbols €,£,$,%,! viagra, penis, billion, billionaire, lottery, prize, charity , USA, Nigeria"
 
