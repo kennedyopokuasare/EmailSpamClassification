@@ -121,6 +121,16 @@ class EmailClassifier():
                     print "\n\n10 randomly sample ham examples"
                     for entry in sampledHam:
                         print documents[entry]+"\n"
+                scoring=[]
+                accuracy=[]
+                recall=[]
+                precision=[]
+                f1=[]
+                metrics={}
+                crossValidationResults={}
+                allHam=[]
+                allSpam=[]
+                
     
     def evaluate_prediction(self,labels_test, predictions):
         evaluationTable = []
@@ -225,7 +235,7 @@ class EmailClassifier():
         """Uses 10 Principal Components of term frequency x Inverse document frequency feature for classification"""
 
         print "With PCA (TF.IDF)"
-
+        documents2TfidfVector =TfidfVectorizer(vocabulary=vocabularyList,decode_error='ignore')
         SVM_pipeline=Pipeline([
             ('tfIdf',documents2TfidfVector),
             ('to_dense', DenseTransformer()), 
@@ -259,7 +269,7 @@ class EmailClassifier():
         """
 
         print "Using LDA (TF.IDF)"
-
+        documents2TfidfVector =TfidfVectorizer(vocabulary=vocabularyList,decode_error='ignore')
         SVM_pipeline=Pipeline([
             ('tfIdf',documents2TfidfVector),
             ('to_dense', DenseTransformer()), 
@@ -292,9 +302,9 @@ class EmailClassifier():
         """Uses 10 Principal Componets and Linear discriminant analyses of
          term frequency x Inverse document frequency feature for classification
          """
-
+        documents2TfidfVector =TfidfVectorizer(vocabulary=vocabularyList,decode_error='ignore')
         print "Using PCA (TF.IDF), LDA (TF.IDF)"
-
+        
         featureSet=FeatureUnion([
             ('PCA (TF.IDF)',PCA(n_components=10)),
             ('LDA',LinearDiscriminantAnalysis( n_components=10))
@@ -572,4 +582,4 @@ binarisedLables=binarizer.fit_transform(labels).ravel()
 #document_train, document_test, labels_train, labels_test = train_test_split(documents, binarisedLables, test_size=0.40)
 
 emailclassifier= EmailClassifier()
-emailclassifier.using_suggested_features()
+emailclassifier.using_TFIDF()
