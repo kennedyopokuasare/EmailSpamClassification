@@ -23,7 +23,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.preprocessing import LabelBinarizer,scale
 from sklearn.pipeline import Pipeline, FeatureUnion
-from sklearn.metrics import precision_score, recall_score, f1_score, average_precision_score
+from sklearn.metrics import precision_score, recall_score, f1_score, average_precision_score,accuracy_score
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -88,7 +88,7 @@ class EmailClassifier():
             majorityVoteClassifier=VotingClassifier(estimators=[("SVM",SVM_pipeline),("Naive Bayesian",NB_pipeline),("Random Forest",RF_pipeline),("K-Nearest Neigbour",KNN_pipeline)],voting='hard')
             for clf, label in zip([SVM_pipeline, NB_pipeline, RF_pipeline,KNN_pipeline, majorityVoteClassifier], classifier_Labels):
                 scoring = ['accuracy','precision', 'recall', 'f1']
-                crossValidationResults = cross_validate(clf, documents, binarisedLables, cv=5, scoring=scoring,return_train_score=False)
+                crossValidationResults = cross_validate(clf, documents, binarisedLables, cv=2, scoring=scoring,return_train_score=False)
                 accuracy=crossValidationResults['test_accuracy']
                 precision=crossValidationResults['test_precision']
                 recall=crossValidationResults['test_recall']
@@ -142,12 +142,59 @@ class EmailClassifier():
             evaluation["Recall"] = recall_score(labels_test, value)
             evaluation["Precision"] = precision_score(labels_test, value)
             evaluation["F1 Score"] = f1_score(labels_test, value)
-            evaluation["Average Precision score"] = average_precision_score(
-                labels_test, value)
+            evaluation["Accuracy"]=accuracy_score(labels_test,value)
+            #evaluation["Average Precision score"] = average_precision_score(labels_test, value)
             evaluation["tn"],evaluation["fp"],evaluation["fn"],evaluation["tp"] = confusion_matrix(labels_test, value).ravel()
             evaluationTable.append(evaluation)
         return evaluationTable
+    def using_TF_IDF_tutorial(self):
+        print "With TF, IDF in tutorial"
+        documents2TfidfVector =TfidfVectorizer(vocabulary=vocabularyList,decode_error='ignore')
+        SVM_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('SVM',LinearSVC()) 
+        ])
+        NB_pipeline=Pipeline([
+            ('tfIdf',documents2TfidfVector),
+            ('BN',MultinomialNB()) 
+        ])
+        
+        document_train, document_test, labels_train, labels_test = train_test_split(documents, binarisedLables, test_size=0.40)
+        predictions={}
+        predictions["SVM"]=SVM_pipeline.fit(document_train,labels_train).predict(document_test)
+        predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
+        
+        #predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
+        #predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
+        # print type(predictions)
 
+        scores=self.evaluate_prediction(labels_test,predictions)
+        print scores
+        #self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
+    def using_TF_tutorial(self):
+        print "With TF in tutorial"
+        word2vectTransformer=CountVectorizer(vocabulary=vocabularyList,decode_error='ignore')
+
+        SVM_pipeline=Pipeline([
+            ('tf',word2vectTransformer),
+            ('SVM',LinearSVC()) 
+        ])
+        NB_pipeline=Pipeline([
+            ('tf',word2vectTransformer),
+            ('SVM',MultinomialNB()) 
+        ])
+        
+        document_train, document_test, labels_train, labels_test = train_test_split(documents, binarisedLables, test_size=0.40)
+        predictions={}
+        predictions["SVM"]=SVM_pipeline.fit(document_train,labels_train).predict(document_test)
+        predictions['Naive Bayesian']=NB_pipeline.fit(document_train,labels_train).predict(document_test)
+        #predictions['Random Forest']=RF_pipeline.fit(document_train,labels_train).predict(document_test)
+       #predictions['K Nearest Neighbour']=KNN_pipeline.fit(document_train,labels_train).predict(document_test)
+        # print type(predictions)
+
+        scores=self.evaluate_prediction(labels_test,predictions)
+        print scores
+        #self.classify_emails(SVM_pipeline,NB_pipeline,RF_pipeline,KNN_pipeline,documents,binarisedLables)
     def using_TF(self):
         """Uses term frequency feature for classification"""
         print "With TF"
@@ -209,7 +256,7 @@ class EmailClassifier():
         #Note LanguateMistakesVectorizer requires a running grammar-check server. check readme.md
         featureSet=FeatureUnion([
             ('Count of URLs',URLCountVectorizer()),
-            ('Count of Language Mistakes',LanguageMistakesVectorizer()),
+            #('Count of Language Mistakes',LanguageMistakesVectorizer()),
             ('Count of words',WordCountVectorizer()),
             ('Count of Named Entities',NameEntityCountVectorizer())
         ])
@@ -369,7 +416,7 @@ class WordCountVectorizer(BaseEstimator, TransformerMixin):
 
     def count_words_doc(self, doc):
         """Returns the count of words in a document"""
-        all_words = nltk.word_tokenize(doc)
+        all_words = doc.split()#nltk.word_tokenize(doc)
         all_words_iter = all_words
         for item in all_words_iter:
             if item.strip().isalpha() == False:
@@ -399,7 +446,7 @@ class NameEntityCountVectorizer(BaseEstimator, TransformerMixin):
 
     def count_named_entities(self, doc):
         """Returns a count of named entities in te a document"""
-        tokens = nltk.word_tokenize(doc)
+        tokens = doc.split()#nltk.word_tokenize(doc)
         dir_path = os.path.dirname(os.path.realpath(__file__))
         
         #serFile=os.path.join(dir_path,'english.all.3class.distsim.crf.ser')
@@ -582,4 +629,4 @@ binarisedLables=binarizer.fit_transform(labels).ravel()
 #document_train, document_test, labels_train, labels_test = train_test_split(documents, binarisedLables, test_size=0.40)
 
 emailclassifier= EmailClassifier()
-emailclassifier.using_TFIDF()
+emailclassifier.using_TF_IDF_tutorial()
